@@ -102,7 +102,7 @@ void merge_sort(std::span<int> vec, std::span<int> other) {
 
 void sort(std::vector<int> &vec) {
     std::vector<int> other = vec;
-    merge_sort(span(vec), span(other));
+    merge_sort(std::span(vec), std::span(other));
 }
 
 int main(void) {

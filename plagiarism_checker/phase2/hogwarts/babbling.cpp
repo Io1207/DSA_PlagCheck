@@ -7,6 +7,7 @@
 #include <time.h>
 #include <signal.h>
 #include <atomic>
+#include <mutex>
 
 std::atomic<int> num_printed(0);
 std::mutex m;

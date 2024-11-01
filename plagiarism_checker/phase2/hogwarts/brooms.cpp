@@ -1,12 +1,16 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <thread>
+#include <mutex>
+#include <queue>
+#include <functional>
 
 #define MODULO 1000000007
 
 class NNmaker { 
 public:
-    NNmaker(std::vector<std::vector<int>> &__v) : v(__v) {
+    NNmaker(std::vector<std::vector<int>> __v) : v(__v) {
         cum = v;
         for (int i = 0; i < v.size(); i++) {
             for (int j = 0; j < v[i].size(); j++) {
@@ -32,6 +36,29 @@ protected:
     }
 };
 
+int shortest_path_wt(std::vector<std::vector<std::pair<int, int>>> &graph) {
+    int n = graph.size();
+    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, 
+        std::greater<std::pair<int, int>>> pq;
+    std::vector<int> dist(n, INT_MAX);
+    pq.push(std::make_pair(0, 0));
+    dist[0] = 0;
+    while (!pq.empty()) {
+        std::pair<int, int> top = pq.top();
+        pq.pop();
+        int u = top.second;
+        for (auto &neighbour : graph[u]) {
+            int v = neighbour.first;
+            int w = neighbour.second;
+            if (dist[u] + w < dist[v]) {
+                dist[v] = dist[u] + w;
+                pq.push(std::make_pair(dist[v], v));
+            }
+        }
+    }
+    return -1;
+}
+
 int num_ways_reach(int x, int y, int z) {
     std::vector<std::vector<std::vector<int>>> DP(x + 1, 
             std::vector<std::vector<int>>(y + 1, std::vector<int>(z + 1, 0)));
@@ -48,7 +75,7 @@ int num_ways_reach(int x, int y, int z) {
     return DP[x][y][z];
 }
 
-template <typename T, U>
+template <typename T, typename U>
 std::vector<std::vector<U>> transform(std::vector<std::vector<T>> &v, 
         std::function<U(T)> f) {
     std::vector<std::vector<U>> result;

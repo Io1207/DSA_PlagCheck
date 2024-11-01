@@ -6,14 +6,16 @@
 #include <mutex>
 #include <random>
 #include <queue>
+#include <unistd.h>
+#include <chrono>
 
 struct data_t {
     void enqueue(std::array<int, 10> __data) {
-        std::lock_guard<std::mutex> lock(this->lock);
+        std::lock_guard<std::mutex> __lock(this->lock);
         this->data.push(__data);
     }
     std::array<int, 10> dequeue(void) {
-        std::lock_guard<std::mutex> lock(this->lock);
+        std::lock_guard<std::mutex> __lock(this->lock);
         std::array<int, 10> __data = this->data.front();
         this->data.pop();
         return __data;
@@ -24,10 +26,10 @@ protected:
 };
 
 struct sender_t {
-    sender_t(std::shared_ptr<data_t> __data) : data(__data) {
+    sender_t(std::shared_ptr<data_t> __data) : shared_data(__data) {
         this->main_fn = std::thread([this](void) {
             while (true) {
-                std::lock_guard<std::mutex> lock(this->lock);
+                std::lock_guard<std::mutex> __lock(this->lock);
                 if (this->data.empty()) continue;
                 std::array<int, 10> __data = this->data.front();
                 this->data.pop();
@@ -51,7 +53,7 @@ struct sender_t {
         this->main_fn.join();
     }
     void send(std::array<int, 10> __data) {
-        std::lock_guard<std::mutex> lock(this->lock);
+        std::lock_guard<std::mutex> __lock(this->lock);
         this->data.push(__data);
     }
 protected:
@@ -62,7 +64,7 @@ protected:
 };
 
 struct receiver_t {
-    receiver_t(std::shared_ptr<data_t> __data) : data(__data) {
+    receiver_t(std::shared_ptr<data_t> __data) : shared_data(__data) {
         this->is_running = true;
         this->main_fn = std::thread([this](void) {
             while (is_running) {
@@ -78,8 +80,8 @@ struct receiver_t {
                     std::cout << "Zero array detected!" << std::endl;
                     break;
                 } else {
-                    std::lock_guard<std::mutex> lock(this->lock);
-                    this->data->enqueue(data);
+                    std::lock_guard<std::mutex> __lock(this->lock);
+                    this->data.push(__data);
                 }
             }
         });
@@ -89,7 +91,7 @@ struct receiver_t {
         this->main_fn.join();
     }
     std::array<int, 10> receive(void) {
-        std::lock_guard<std::mutex> lock(this->lock);
+        std::lock_guard<std::mutex> __lock(this->lock);
         std::array<int, 10> __data = this->data.front();
         this->data.pop();
         return __data;
@@ -102,7 +104,10 @@ protected:
     std::atomic<bool> is_running;
 };
 
-void send_random_datas_to(std::mt19937 gen, sender_t &sender, int num_data) {
+void send_random_datas_to(std::shared_ptr<data_t> data, int num_data) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    sender_t sender(data);
     for (int i = 0; i < num_data; i++) {
         std::array<int, 10> __data;
         for (int j = 0; j < 10; j++) {
@@ -118,12 +123,9 @@ void send_random_datas_to(std::mt19937 gen, sender_t &sender, int num_data) {
 }
 
 int main(void) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::shared_ptr<data_t> data = std::make_shared<data_t>();
-    sender_t sender(data);
     receiver_t receiver(data);
-    std::thread sender_thread(send_random_datas_to, gen, std::ref(sender), 10);
+    std::thread sender_thread(send_random_datas_to, data, 10);
     sender_thread.join();
     usleep(1000000);
     for (int i = 0; i < 10; i++) {

@@ -4,7 +4,7 @@
 #include <string>
 
 struct NNmaker {
-    NNmaker(std::vector<std::vector<int>> &__v) : v(__v) {
+    NNmaker(std::vector<std::vector<int>> __v) : v(__v) {
         cum = v;
         for (int i = 0; i < v.size(); i++) {
             for (int j = 0; j < v[i].size(); j++) {
@@ -32,14 +32,13 @@ protected:
 
 int main(void) {
     NNmaker nn = NNmaker(std::vector<std::vector<int>>{
-        {1, 2, 3, 4, 5},
-        {6, 7, 8, 9, 10},
-        {11, 12, 13, 14, 15},
-        {16, 17, 18, 19, 20}
+        {1, 2, 3},
+        {4, 5, 6},
+        {7, 8, 9}
     });
-    std::vector<int> result = nn.get_nearest(std::vector<int>{1, 4, 9, 16, 25});
+    std::vector<int> result = nn.get_nearest(std::vector<int>{1, 2, 3});
     for (auto &elem : result) {
-        printf("%d ", elem);
+        std::cout << elem << " ";
     }
     std::cout << std::endl;
     return 0;

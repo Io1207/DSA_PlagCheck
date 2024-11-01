@@ -42,6 +42,7 @@ int shortest_path_wt(std::vector<std::vector<std::pair<int, int>>> &graph) {
             }
         }
     }
+    return -1;
 }
 
 int main(void) {

@@ -4,9 +4,11 @@
 tokenizer_t::tokenizer_t(std::string __file_name) {
     this->file_name = __file_name;
     this->index = clang_createIndex(0, 0);
+    const char* args[] = {"-std=c++20"};
     this->unit = clang_parseTranslationUnit(
         index,
-        this->file_name.c_str(), nullptr, 0,
+        this->file_name.c_str(), 
+        args, 1,
         nullptr, 0,
         CXTranslationUnit_None);
     if (this->unit == nullptr) {

@@ -4,7 +4,7 @@
 #include <functional>
 #include <random>
 
-template <typename T, U>
+template <typename T, typename U>
 std::vector<std::vector<U>> transform(std::vector<std::vector<T>> &v, 
         std::function<U(T)> f) {
     std::vector<std::vector<U>> result;
