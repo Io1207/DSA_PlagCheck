@@ -4,7 +4,7 @@
 #include <vector>
 #include <cmath>
 // -----------------------------------------------------------------------------
-#include <algorithm>
+#include <map>
 
 // You are free to add any STL includes above this comment, below the --line--.
 // DO NOT add "using namespace std;" or include any other files/libraries.
@@ -46,7 +46,7 @@ public:
             for(int j = 0; j < n; j++) {
                 int length1 = dp[i][j];
                 if(length1 >= minLength && length1 <= maxLength) {
-                    std::cout << "i = " << i << ", j = " << j << ", length1 = " << length1 << std::endl;
+                    // std::cout << "i = " << i << ", j = " << j << ", length1 = " << length1 << std::endl;
                     // if(length1 == minLength) {
                     //     totalLength += length1;
                     // } else {
@@ -105,21 +105,39 @@ public:
 //     return os;
 // }
 
+template <typename T1, typename T2>
+std::ostream &operator<<(std::ostream &os, const std::map<T1, T2> &mp) {
+    os << "{";
+    for (const auto &i : mp) {
+        os << i.first << ": " << i.second << ", ";
+    }
+    os << "}";
+    return os;
+}
+
 std::array<int, 5> match_submissions(std::vector<int> &submission1, std::vector<int> &submission2) {
     // TODO: Write your code here
 
-    LCSMatrix lcs(submission1, submission2);
+    // LCSMatrix lcs(submission1, submission2);
+    std::map<int, int> mp;
+    for(const auto &i : submission1) {
+        mp[i]++;
+    }
+    for(const auto &i : submission2) {
+        mp[i]++;
+    }
+    std::cout << "mp.size() = " << mp.size() << ", mp = " << mp << std::endl;
 
     std::array<int, 5> result;
 
-    result[1] = lcs.exactPatternMatchLengthSum(10, 20);
+    // result[1] = lcs.exactPatternMatchLengthSum(10, 20);
     
-    int start1, start2;
-    result[2] = lcs.longestApproximatePatternMatch(start1, start2, 0.8);
-    result[3] = start1;
-    result[4] = start2;
+    // int start1, start2;
+    // result[2] = lcs.longestApproximatePatternMatch(start1, start2, 0.8);
+    // result[3] = start1;
+    // result[4] = start2;
 
-    result[0] = 0;
+    // result[0] = 0;
     
     return result;
 
