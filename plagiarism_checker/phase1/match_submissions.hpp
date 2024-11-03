@@ -50,7 +50,7 @@ int extendExactMatch(const std::vector<int> &submission1, const std::vector<int>
     const int m = submission1.size();
     const int n = submission2.size();
 
-    const double tolerance = 0.25;
+    const double tolerance = 0.12;
 
     int i1 = i + blockSize;
     int j1 = j + blockSize;
@@ -58,30 +58,20 @@ int extendExactMatch(const std::vector<int> &submission1, const std::vector<int>
     int matchingCount = blockSize;
     int clashingCount = 0;
 
-    for (; i1 < m && j1 < n && clashingCount <= tolerance * matchingCount; i1++, j1++)
-    {
-        if (submission1[i1] == submission2[j1])
-        {
+    for(; i > 0 && i1 < m && j > 0 && j1 < n && clashingCount <= tolerance * matchingCount; i--, i1++, j--, j1++) {
+        if(submission1[i - 1] == submission2[j - 1]) {
             matchingCount++;
+        } else {
+            clashingCount++;
         }
-        else
-        {
+        
+        if(submission1[i1] == submission2[j1]) {
+            matchingCount++;
+        } else {
             clashingCount++;
         }
     }
-
-    for (; i >= 0 && j >= 0 && clashingCount <= tolerance * matchingCount; i--, j--)
-    {
-        if (submission1[i] == submission2[j])
-        {
-            matchingCount++;
-        }
-        else
-        {
-            clashingCount++;
-        }
-    }
-
+    
     return i1 - i;
 }
 
@@ -101,7 +91,7 @@ std::array<int, 5> match_submissions(std::vector<int> &submission1, std::vector<
     // TODO: Write your code here
     const int m = submission1.size();
 
-    const int blockSize = 10;
+    const int blockSize = 15;
 
     auto hashes1 = computeSubstringHashes(submission1, blockSize);
     auto hashes2 = computeSubstringHashes(submission2, blockSize);
