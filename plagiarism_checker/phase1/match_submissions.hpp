@@ -50,7 +50,7 @@ int extendExactMatch(const std::vector<int> &submission1, const std::vector<int>
     const int m = submission1.size();
     const int n = submission2.size();
 
-    const double tolerance = 0.12;
+    const double tolerance = 0.20;
 
     int i1 = i + blockSize;
     int j1 = j + blockSize;
