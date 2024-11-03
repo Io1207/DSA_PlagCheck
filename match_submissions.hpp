@@ -43,7 +43,7 @@ struct RollingHash
 
     int rollingHash(int currHash,int length, int deleting, int adding)
     {
-        current_hash=(1LL*currHash*base-1LL*deleting*power(base,length)%mod+adding)%mod;
+        currHash=(1LL*currHash*base-1LL*deleting*power(base,length)%mod+adding)%mod;
         if (currHash<0) currHash=currHash+mod;
         return currHash;
     }
@@ -53,7 +53,7 @@ struct RollingHash
         int reult=1;
         while(power>0)
         {
-            if (exp%2!=0) reult=(1LL*reult*base)%mod;
+            if (power%2!=0) reult=(1LL*reult*base)%mod;
             base=(1LL*base*base)%mod;
             power=power/2;
         }
@@ -83,17 +83,17 @@ std::vector<std::tuple<int, int, int>> find_similar_subarrays(const std::vector<
     std::unordered_map<int, std::vector<int>> arr1_hashes; // Map of hash -> starting indices
 
     // Precompute hashes for all subarrays of length min_len in arr1
-    int initial_hash1 = hasher.compute_hash(arr1, min_len);
+    int initial_hash1 = hasher.computeHash(arr1, min_len);
     arr1_hashes[initial_hash1].push_back(0);
     for (int i = 1; i + min_len <= arr1.size(); ++i) 
     {
-        initial_hash1 = hasher.roll_hash(initial_hash1, min_len, arr1[i - 1], arr1[i + min_len - 1]);
+        initial_hash1 = hasher.rollingHash(initial_hash1, min_len, arr1[i - 1], arr1[i + min_len - 1]);
         arr1_hashes[initial_hash1].push_back(i);
     }
 
     // Find matches in arr2 using rolling hash and approximate similarity check
     std::vector<std::tuple<int, int, int>> matches; // (start1, start2, length)
-    int initial_hash2 = hasher.compute_hash(arr2, min_len);
+    int initial_hash2 = hasher.computeHash(arr2, min_len);
     for (const int& start1 : arr1_hashes[initial_hash2]) 
     {
         if (is_approximate_match(arr1, start1, arr2, 0, min_len, similarity)) 
@@ -107,7 +107,7 @@ std::vector<std::tuple<int, int, int>> find_similar_subarrays(const std::vector<
         }
     }
     for (int j = 1; j + min_len <= arr2.size(); ++j) {
-        initial_hash2 = hasher.roll_hash(initial_hash2, min_len, arr2[j - 1], arr2[j + min_len - 1]);
+        initial_hash2 = hasher.rollingHash(initial_hash2, min_len, arr2[j - 1], arr2[j + min_len - 1]);
         if (arr1_hashes.count(initial_hash2)) 
         {
             for (const int& start1 : arr1_hashes[initial_hash2]) 
