@@ -8,22 +8,17 @@
 #include <unordered_map>
 #include <unordered_set>
 
-// You are free to add any STL includes above this comment, below the --line--.
-// DO NOT add "using namespace std;" or include any other files/libraries.
-// Also DO NOT add the include "bits/stdc++.h"
-
-// OPTIONAL: Add your helper functions and data structures here
-
 const int base = 257;
 const int mod = 1e9 + 7;
 
+// computing hashes for different block sizes to finally implement rolling hash to find exact matches
 std::unordered_map<long long, std::vector<int>> computeSubstringHashes(const std::vector<int> &vec, const int &blockSize)
 {
     const int n = vec.size();
     std::unordered_map<long long, std::vector<int>> hashes;
 
     long long hash = 0;
-    long long baseExp = 1; // for removing the first element
+    long long baseExp = 1; // to remove the first element
 
     // Compute the hash of the first blockSize
     for (int i = 0; i < blockSize; i++)
@@ -46,6 +41,7 @@ std::unordered_map<long long, std::vector<int>> computeSubstringHashes(const std
     return hashes;
 }
 
+// extending exact match on both ends to look for the approximate match
 int extendExactMatch(const std::vector<int> &submission1, const std::vector<int> &submission2, int &i, int &j, const int &blockSize)
 {
     const int m = submission1.size();
@@ -59,38 +55,41 @@ int extendExactMatch(const std::vector<int> &submission1, const std::vector<int>
     int matchingCount = blockSize;
     int clashingCount = 0;
 
-    for(; i > 0 && i1 < m && j > 0 && j1 < n && clashingCount <= tolerance * matchingCount; i--, i1++, j--, j1++) {
-        if(submission1[i - 1] == submission2[j - 1]) {
+    for (; i > 0 && i1 < m && j > 0 && j1 < n && clashingCount <= tolerance * matchingCount; i--, i1++, j--, j1++)
+    {
+        if (submission1[i - 1] == submission2[j - 1])
             matchingCount++;
-        } else {
+        else
             clashingCount++;
-        }
-        
-        if(submission1[i1] == submission2[j1]) {
+
+        if (submission1[i1] == submission2[j1])
             matchingCount++;
-        } else {
+        else
             clashingCount++;
-        }
     }
-    
+
     return i1 - i;
 }
 
-std::vector<long long> getIndexedHashes(const std::vector<int> &vec, const int &window) {
+// hashing of window starting at a particular index
+std::vector<long long> getIndexedHashes(const std::vector<int> &vec, const int &window)
+{
     const int n = vec.size();
     std::vector<long long> hashes(n - window + 1);
 
     long long hash = 0;
-    long long baseExp = 1;  // for removing the first element
+    long long baseExp = 1; // to remove the first element
 
     // Compute the hash of the first window
-    for (int i = 0; i < window; i++) {
+    for (int i = 0; i < window; i++)
+    {
         hash = ((hash * base) + vec[i]) % mod;
         baseExp = (baseExp * base) % mod;
     }
 
     // Compute rolling hashes for all windows
-    for (int i = window; i < n; ++i) {
+    for (int i = window; i < n; ++i)
+    {
         hashes[i - window] = hash;
         hash = ((hash * base) + vec[i]) % mod;
         hash = (hash - ((vec[i - window] * baseExp) % mod) + mod) % mod;
@@ -102,21 +101,25 @@ std::vector<long long> getIndexedHashes(const std::vector<int> &vec, const int &
     return hashes;
 }
 
-std::unordered_set<long long> getAllHashes(const std::vector<int> &vec, const int &window) {
+//Getting the set of all hashes for all windows of size 'window'
+std::unordered_set<long long> getAllHashes(const std::vector<int> &vec, const int &window)
+{
     const int n = vec.size();
     std::unordered_set<long long> hashes;
 
     long long hash = 0;
-    long long baseExp = 1;  // for removing the first element
+    long long baseExp = 1; // for removing the first element
 
     // Compute the hash of the first window
-    for (int i = 0; i < window; i++) {
+    for (int i = 0; i < window; i++)
+    {
         hash = ((hash * base) + vec[i]) % mod;
         baseExp = (baseExp * base) % mod;
     }
 
     // Compute rolling hashes for all windows
-    for (int i = window; i < n; ++i) {
+    for (int i = window; i < n; ++i)
+    {
         hashes.insert(hash);
         hash = ((hash * base) + vec[i]) % mod;
         hash = (hash - ((vec[i - window] * baseExp) % mod) + mod) % mod;
@@ -128,12 +131,14 @@ std::unordered_set<long long> getAllHashes(const std::vector<int> &vec, const in
     return hashes;
 }
 
-int totalLengthOfPatternMatches(const std::vector<int> &submission1, const std::vector<int> &submission2, const int &minLength) {
+// getting the length of all exact matches
+int totalLengthOfPatternMatches(const std::vector<int> &submission1, const std::vector<int> &submission2, const int &minLength)
+{
     const int m = submission1.size();
 
     // make hashAt1, a vector of hashes of size m - 9
     // hashAt1[i] = computeHash(submission1[i ... i + 9])
-    auto hashAt1 = getIndexedHashes(submission1, minLength);  
+    auto hashAt1 = getIndexedHashes(submission1, minLength);
 
     // make hashes2, a set of all the hashes of size 10 in submission2
     auto hashes2 = getAllHashes(submission2, minLength);
@@ -144,28 +149,27 @@ int totalLengthOfPatternMatches(const std::vector<int> &submission1, const std::
 
     // for each hash in hashAt1, check if it is in hashes2
     // if it is, set all the corresponding values in counted1 to true
-    for(int i = 0; i < m - minLength + 1; i++) {
-        if(counted1[i]) {
+    for (int i = 0; i < m - minLength + 1; i++)
+    {
+        if (counted1[i])
             continue;
-        }
-        if(hashes2.find(hashAt1[i]) != hashes2.end()) {
-            for(int i1 = i; i1 < i + minLength; i1++) {
+        if (hashes2.find(hashAt1[i]) != hashes2.end())
+        {
+            for (int i1 = i; i1 < i + minLength; i1++)
+            {
                 counted1[i1] = true;
             }
         }
     }
 
     // return the total number of 'true's in counted1
-    int totalLength = 0;
-    for(int i = 0; i < m; i++) {
-        if(counted1[i]) {
-            totalLength++;
-        }
-    }
+    int totalLength = std::count(counted1.begin(), counted1.end(), true);
     return totalLength - minLength;
 }
 
-int maximumApproximatePatternMatch(const std::vector<int> &submission1, const std::vector<int> &submission2, int &start1, int &start2) {
+// finding the longest approximate matches between two files
+int maximumApproximatePatternMatch(const std::vector<int> &submission1, const std::vector<int> &submission2, int &start1, int &start2)
+{
     const int m = submission1.size();
 
     const int blockSize = 15;
@@ -178,9 +182,7 @@ int maximumApproximatePatternMatch(const std::vector<int> &submission1, const st
     for (const auto &[hash, starts1] : hashes1)
     {
         if (hashes2.find(hash) == hashes2.end())
-        {
             continue;
-        }
         for (auto i : starts1)
         {
             for (auto j : hashes2[hash])
@@ -199,14 +201,17 @@ int maximumApproximatePatternMatch(const std::vector<int> &submission1, const st
     return longestApproximateMatch;
 }
 
+// flagging as plagiarised or not plagiarised
 int flagged(int size, int exact, int longest)
 {
-    if((float)exact/(float)size>=0.2 || exact>=200  || longest>= 150 || (float)longest/(float)size>=0.2){
+    if ((float)exact / (float)size >= 0.2 || exact >= 200 || longest >= 150 || (float)longest / (float)size >= 0.2)
+    {
         return 1;
     }
     return 0;
 }
 
+// main code that returns result array
 std::array<int, 5> match_submissions(std::vector<int> &submission1, std::vector<int> &submission2)
 {
     const int m = submission1.size();
@@ -225,9 +230,7 @@ std::array<int, 5> match_submissions(std::vector<int> &submission1, std::vector<
     result[3] = start1;
     result[4] = start2;
 
-    result[0] = flagged(std::min(m, n), result[1], result[2]);
+    result[0] = flagged(std::min(m, n), result[1], result[2]); // flagging the files
 
     return result;
-
-    // End TODO
 }
