@@ -217,6 +217,12 @@ std::array<int, 5> match_submissions(std::vector<int> &submission1, std::vector<
     const int m = submission1.size();
     const int n = submission2.size();
 
+    // if both submissions are exactly the same, catch immediately
+    if (submission1 == submission2)
+    {
+        return {1, m, m, 0, 0};
+    }
+
     // TODO: Write your code here
     std::array<int, 5> result = {0, 0, 0, 0, 0};
 
