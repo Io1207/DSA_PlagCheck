@@ -1,5 +1,8 @@
 #include "structures.hpp"
 // -----------------------------------------------------------------------------
+#include <vector>
+#include <thread>
+#include <mutex>
 
 // You are free to add any STL includes above this comment, below the --line--.
 // DO NOT add "using namespace std;" or include any other files/libraries.
@@ -20,5 +23,7 @@ protected:
     // TODO: Add members and function signatures here
     
     std::vector<std::vector<int>> tokenized_submissions;
+    std::vector<std::thread> threads;
+    std::mutex sub_mutex;
     // End TODO
 };
