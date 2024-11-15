@@ -19,5 +19,6 @@ public:
 protected:
     // TODO: Add members and function signatures here
     
+    std::vector<std::vector<int>> tokenized_submissions;
     // End TODO
 };
