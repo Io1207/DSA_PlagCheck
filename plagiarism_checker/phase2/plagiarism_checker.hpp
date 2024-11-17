@@ -3,6 +3,7 @@
 #include <vector>
 #include <thread>
 #include <mutex>
+#include <cmath>
 
 // You are free to add any STL includes above this comment, below the --line--.
 // DO NOT add "using namespace std;" or include any other files/libraries.
@@ -21,9 +22,10 @@ public:
 
 protected:
     // TODO: Add members and function signatures here
+    void tokenize_chunk(const std::vector<std::shared_ptr<submission_t>> &submissions, int start, int end);
     
     std::vector<std::vector<int>> tokenized_submissions;
-    std::vector<std::thread> threads;
+    // std::vector<std::thread> threads;
     std::mutex sub_mutex;
     // End TODO
 };
