@@ -4,76 +4,44 @@
 
 // TODO: Implement the methods of the plagiarism_checker_t class
 
-std::vector<long long> getIndexedHashes(const std::vector<int> &vec, const int &window)
-{
-    const int n = vec.size();
-    std::vector<long long> hashes(n - window + 1);
-
-    long long hash = 0;
-    long long baseExp = 1; // to remove the first element
-
-    // Compute the hash of the first window
-    for (int i = 0; i < window; i++)
-    {
-        hash = ((hash * base) + vec[i]) % mod;
-        baseExp = (baseExp * base) % mod;
-    }
-
-    // Compute rolling hashes for all windows
-    for (int i = window; i < n; ++i)
-    {
-        hashes[i - window] = hash;
-        hash = ((hash * base) + vec[i]) % mod;
-        hash = (hash - ((vec[i - window] * baseExp) % mod) + mod) % mod;
-    }
-
-    // Add the last hash
-    hashes[n - window] = hash;
-
-    return hashes;
-}
-
-// Getting the set of all hashes for all windows of size 'window'
-std::unordered_set<long long> getAllHashes(const std::vector<int> &vec, const int &window)
-{
-    const int n = vec.size();
-    std::unordered_set<long long> hashes;
-
-    long long hash = 0;
-    long long baseExp = 1; // for removing the first element
-
-    // Compute the hash of the first window
-    for (int i = 0; i < window; i++)
-    {
-        hash = ((hash * base) + vec[i]) % mod;
-        baseExp = (baseExp * base) % mod;
-    }
-
-    // Compute rolling hashes for all windows
-    for (int i = window; i < n; ++i)
-    {
-        hashes.insert(hash);
-        hash = ((hash * base) + vec[i]) % mod;
-        hash = (hash - ((vec[i - window] * baseExp) % mod) + mod) % mod;
-    }
-
-    // Add the last hash
-    hashes.insert(hash);
-
-    return hashes;
-}
 void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized_submission_t> sub1, std::shared_ptr<tokenized_submission_t> sub2)
 {
-    if (sub1->has_been_flagged && sub2->has_been_flagged)
-        return;
+    {
+        std::lock_guard<std::mutex> lock1(sub1->flag_mutex);
+        std::lock_guard<std::mutex> lock2(sub2->flag_mutex);
+        if (sub1->has_been_flagged && sub2->has_been_flagged)
+            return;
+    }
     if (!sub1->is_new_submission && !sub2->is_new_submission)
         return;
-    
-    const auto &submission1 = sub1->tokens;
-    const auto &submission2 = sub2->tokens;
-    const auto &hashAt1 = sub1->hashVec;
-    const auto &hashes2 = sub2->hashSet;
+
+    const std::vector<int> &submission1 = sub1->tokens;
+    const std::vector<int> &submission2 = sub2->tokens;
+    const std::vector<long long> &hashAt1 = sub1->hashVec;
+    const std::unordered_set<long long> &hashes2 = sub2->hashSet;
     const int m = submission1.size();
+
+    if (submission1==submission2)
+    {
+        auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(sub1->timestamp - sub2->timestamp).count();
+        if (timeDiff > 1000)
+        {
+            // std::cerr << "submission1==submission2 and timeDiff > 1000" << std::endl;
+            sub1->flag_plagiarism();
+        }
+        else if (timeDiff < -1000)
+        {
+            // std::cerr << "submission1==submission2 and timeDiff < -1000" << std::endl;
+            sub2->flag_plagiarism();
+        }
+        else
+        {
+            // std::cerr << "submission1==submission2 and timeDiff in range" << std::endl;
+            sub1->flag_plagiarism();
+            sub2->flag_plagiarism();
+        }
+        return;
+    }
 
     // make counted1, a vector of booleans of size m, all set to false initially
     // counted1[i] is set to true if submmission1[i] is part of a match
@@ -94,58 +62,60 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
         }
     }
 
-    int i = 0;
     int countSmall = 0;
     int countLong = 0;
-
-    while (i < counted1.size())
-    {
-        if (!counted1[i])
-        {
-            i++;
-            continue;
-        }
-        else
-        {
-            int count = 1;
-            for (; i < counted1.size(); i++)
+    int count = 0;
+    for(int i = 0; i < m; i++) {
+        if(counted1[i]) {
+            count++;
+        } else {
+            if(count >= 75) 
             {
-                if (counted1[i])
-                    count++;
-                if (count == 75)
+                auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(sub1->timestamp - sub2->timestamp).count();
+                std::cerr << "timeDiff = " << timeDiff << std::endl;
+                if (timeDiff > 1000)
                 {
-                    if (sub1->is_new_submission)
-                    {
-                        sub1->flag_plagiarism();
-                    }
-                    if (sub2->is_new_submission)
-                    {
-                        sub2->flag_plagiarism();
-                    }
-                    return;
+                    // std::cerr << "count==75 and timeDiff > 1000" << std::endl;
+                    sub1->flag_plagiarism();
                 }
-            }
-
-            // NOTE: change 25 to make better predictions
-            if (count >= 25)
+                else if (timeDiff < -1000)
+                {
+                    // std::cerr << "count==75 and timeDiff < -1000" << std::endl;
+                    sub2->flag_plagiarism();
+                }
+                else
+                {
+                    // std::cerr << "count==75 and timeDiff in range" << std::endl;
+                    sub1->flag_plagiarism();
+                    sub2->flag_plagiarism();
+                }   
+                return;
+            } else if(count >= 25) {
                 countLong++;
-            if (count < 25 && count >= minLength)
+            } else if(count >= minLength) {
                 countSmall++;
+            }
+            count = 0;
         }
     }
+
     auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(sub1->timestamp - sub2->timestamp).count();
-    if (countSmall >= 10 || countLong >= 7)
+    // if (countSmall >= 10 || countLong >= 7)
+    if(countSmall + countLong >= 10 || countLong >= 6 || 10*countSmall + 25*countLong >= 150)
     {
         if (timeDiff > 1000)
         {
+            // std::cerr << "countSmall >= 10, timeDiff > 1000" << std::endl;
             sub1->flag_plagiarism();
         }
         else if (timeDiff < -1000)
         {
+            // std::cerr << "countSmall >= 10, timeDiff < -1000" << std::endl;
             sub2->flag_plagiarism();
         }
         else
         {
+            // std::cerr << "countSmall >= 10, timeDiff in range" << std::endl;
             sub1->flag_plagiarism();
             sub2->flag_plagiarism();
         }
@@ -156,44 +126,50 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
     {
         if (sub->is_new_submission)
         {
+            std::lock_guard<std::mutex> lock(sub->flag_mutex);
             sub->patch_small = sub->patch_small + countSmall;
             sub->patch_long = sub->patch_long + countLong;
-            int length = 150;
+            int length = 300;
             int checking = minLength * sub->patch_small + 25 * sub->patch_long;
             // 3 checks: number of small matches, number of long matches, total length of matches
-            if (sub->patch_small >= 20 || sub->patch_long >= 15 || checking > length)
+            // if (sub->patch_small >= 20 || sub->patch_long >= 15 || checking > length)
+            if(sub->patch_small + sub->patch_long >= 20 || checking >= length || sub->patch_long >= 12)
             {
+                // std::cerr << "patch_small >= 20" << std::endl;
                 sub->flag_plagiarism();
             }
         }
     }
-    
+
     return;
 }
 
 tokenized_submission_t::tokenized_submission_t(
     std::shared_ptr<submission_t> submission, const std::vector<int> &tokens,
-    const std::chrono::time_point<std::chrono::system_clock> &timestamp,
+    const std::chrono::time_point<std::chrono::steady_clock> &timestamp,
     const std::vector<long long> &hashVec, const std::unordered_set<long long> &hashSet,
     const bool &is_new_submission)
     : submission_t(*submission), tokens(tokens), timestamp(timestamp), hashVec(hashVec),
-      hashSet(hashSet), has_been_flagged(false), is_new_submission(is_new_submission)
+      hashSet(hashSet), has_been_flagged(false), is_new_submission(is_new_submission),
+      patch_small(0), patch_long(0)
 {
 }
 
 void tokenized_submission_t::flag_plagiarism()
 {
+    // Lock the mutex to ensure thread safety for checking and modifying has_been_flagged
     std::lock_guard<std::mutex> lock(flag_mutex);
 
-    // Don't flag the same submission multiple times
-    // Similarly, don't flag pre-existing submissions
+    // Don't flag the same submission multiple times or pre-existing submissions
     if (has_been_flagged || !is_new_submission)
     {
         return;
     }
 
+    // Set has_been_flagged to true while the mutex is locked
     has_been_flagged = true;
 
+    // Flag the student and professor if needed
     if (student)
     {
         student->flag_student(std::make_shared<submission_t>(*this));
@@ -215,7 +191,7 @@ plagiarism_checker_t::plagiarism_checker_t(std::vector<std::shared_ptr<submissio
 {
     // Step 1: Initializations
 
-    auto timestamp = std::chrono::system_clock::now();
+    auto timestamp = std::chrono::steady_clock::now();
     n = __submissions.size();
 
     int chunk_size = n / num_threads;
@@ -249,9 +225,10 @@ plagiarism_checker_t::~plagiarism_checker_t(void)
 
 void plagiarism_checker_t::add_submission(std::shared_ptr<submission_t> __submission)
 {
-    std::cerr << "Adding new submission" << std::endl;
     // Record the submission time
-    auto timestamp = std::chrono::system_clock::now();
+    auto timestamp = std::chrono::steady_clock::now();
+    
+    // std::cerr << "Adding new submission" << std::endl;
 
     // Preprocessing of the new submissions can occur in parallel
     // NOTE: Potentially in the future, if required
@@ -269,21 +246,21 @@ void plagiarism_checker_t::add_submission(std::shared_ptr<submission_t> __submis
     // Check for plagiarism with all the existing submissions
     int chunk_size = (n - 1) / num_threads;
     int remainder = (n - 1) % num_threads;
-    
+
     std::vector<std::thread> plag_threads;
     int start = 0;
 
     for (int t = 0; t < std::min(num_threads, n - 1); t++)
     {
         int end = start + chunk_size + (t < remainder);
-        
+
         plag_threads.emplace_back([this, start, end]()
                                   {
-            std::cerr << "[" << std::this_thread::get_id() << "] Checking " << n - 1 << " against chunk (" << start << ", " << end << ")" << std::endl;
+            // std::cerr << "[" << std::this_thread::get_id() << "] Checking " << n - 1 << " against chunk (" << start << ", " << end << ")" << std::endl;
             for(int idx = start; idx < end; idx++) {
                 totalLengthOfPatternMatches(15, tokenized_submissions[idx], tokenized_submissions[n - 1]);
             } });
-        
+
         start = end;
     }
 
@@ -294,22 +271,23 @@ void plagiarism_checker_t::add_submission(std::shared_ptr<submission_t> __submis
 }
 
 std::shared_ptr<tokenized_submission_t> plagiarism_checker_t::get_tokenized_submission(
-    const std::shared_ptr<submission_t> &submission, const std::chrono::time_point<std::chrono::system_clock> &timestamp,
+    const std::shared_ptr<submission_t> &submission, const std::chrono::time_point<std::chrono::steady_clock> &timestamp,
     const bool &is_new_submission)
 {
-    std::cerr << "[" << std::this_thread::get_id() << "] Preprocessing submission" << std::endl;
+    // std::cerr << "[" << std::this_thread::get_id() << "] Preprocessing submission" << std::endl;
 
     // Assuming required mutexes are locked before calling this function
 
     // Tokenize the submission
     tokenizer_t tkzr(submission->codefile);
     auto tokens = tkzr.get_tokens();
+    const int length = tokens.size();
 
     // Get the hashes for each index as well as the set of all hashes
 
     const int minLength = 15;
-    std::vector<long long>hashVec(n - minLength + 1);
-    std::unordered_set<long long>hashSet;
+    std::vector<long long> hashVec(length - minLength + 1);
+    std::unordered_set<long long> hashSet;
 
     long long hash = 0;
     long long baseExp = 1; // to remove the first element
@@ -317,21 +295,21 @@ std::shared_ptr<tokenized_submission_t> plagiarism_checker_t::get_tokenized_subm
     // Compute the hash of the first window
     for (int i = 0; i < minLength; i++)
     {
-        hash = ((hash * base) + vec[i]) % mod;
+        hash = ((hash * base) + tokens[i]) % mod;
         baseExp = (baseExp * base) % mod;
     }
 
     // Compute rolling hashes for all windows
-    for (int i = minLength; i < n; ++i)
+    for (int i = minLength; i < length; ++i)
     {
         hashVec[i - minLength] = hash;
         hashSet.insert(hash);
-        hash = ((hash * base) + vec[i]) % mod;
-        hash = (hash - ((vec[i - minLength] * baseExp) % mod) + mod) % mod;
+        hash = ((hash * base) + tokens[i]) % mod;
+        hash = (hash - ((tokens[i - minLength] * baseExp) % mod) + mod) % mod;
     }
 
     // Add the last hash
-    hashVec[n - minLength] = hash;
+    hashVec[length - minLength] = hash;
     hashSet.insert(hash);
 
     return std::make_shared<tokenized_submission_t>(submission, tokens, timestamp, hashVec, hashSet, is_new_submission);
@@ -339,7 +317,7 @@ std::shared_ptr<tokenized_submission_t> plagiarism_checker_t::get_tokenized_subm
 
 void plagiarism_checker_t::tokenize_hash_chunk(const std::vector<std::shared_ptr<submission_t>> &submissions, const int &start, const int &end, const auto &timestamp)
 {
-    std::cerr << "[" << std::this_thread::get_id() << "] Preprocessing chunk (" << start << ", " << end << ")" << std::endl;
+    // std::cerr << "[" << std::this_thread::get_id() << "] Preprocessing chunk (" << start << ", " << end << ")" << std::endl;
     for (int idx = start; idx < end; idx++)
     {
         std::lock_guard<std::mutex> lock(sub_mutex);

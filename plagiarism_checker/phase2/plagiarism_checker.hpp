@@ -19,16 +19,18 @@ const int mod = 1e9 + 7;
 struct tokenized_submission_t : public submission_t
 {
     std::vector<int> tokens;
-    std::chrono::time_point<std::chrono::system_clock> timestamp;
+    std::chrono::time_point<std::chrono::steady_clock> timestamp;
     std::vector<long long> hashVec;
     std::unordered_set<long long> hashSet;
     bool has_been_flagged; // To ensure we don't flag the same submission multiple times
     bool is_new_submission; // We are not flagging pre-existing submissions that are given in the constructor
     std::mutex flag_mutex; // To ensure thread safety
+    int patch_small;
+    int patch_long;
 
     tokenized_submission_t(
         std::shared_ptr<submission_t> submission, const std::vector<int> &tokens, 
-        const std::chrono::time_point<std::chrono::system_clock> &timestamp, 
+        const std::chrono::time_point<std::chrono::steady_clock> &timestamp, 
         const std::vector<long long> &hashVec, const std::unordered_set<long long> &hashSet,
         const bool &is_new_submission
     );
@@ -49,7 +51,7 @@ protected:
     // TODO: Add members and function signatures here
 
     std::shared_ptr<tokenized_submission_t> get_tokenized_submission(
-        const std::shared_ptr<submission_t> &submission, const std::chrono::time_point<std::chrono::system_clock> &timestamp,
+        const std::shared_ptr<submission_t> &submission, const std::chrono::time_point<std::chrono::steady_clock> &timestamp,
         const bool &is_new_submission
     );
     void tokenize_hash_chunk(const std::vector<std::shared_ptr<submission_t>> &submissions, const int &start, const int &end, const auto &timestamp);
