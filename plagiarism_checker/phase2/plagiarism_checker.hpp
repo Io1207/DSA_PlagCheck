@@ -52,8 +52,7 @@ protected:
     );
     void tokenize_hash_chunk(const std::vector<std::shared_ptr<submission_t>> &submissions, const int &start, const int &end, const auto &timestamp);
 
-    void check_exact_match(const int &i, const int &j);
-    // NOTE: Patchwork plagiarism check is missing
+    // void check_exact_match(const int &i, const int &j);
 
     // Number of threads for parallel processing
     int num_threads;

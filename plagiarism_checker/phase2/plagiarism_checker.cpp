@@ -114,8 +114,7 @@ void plagiarism_checker_t::add_submission(std::shared_ptr<submission_t> __submis
                                   {
             std::cerr << "[" << std::this_thread::get_id() << "] Checking " << n - 1 << " against chunk (" << start << ", " << end << ")" << std::endl;
             for(int idx = start; idx < end; idx++) {
-                check_exact_match(idx, n - 1);
-                // NOTE: Do the patchwork plagiarism check here
+                totalLengthOfPatternMatches(15, tokenized_submissions[idx], tokenized_submissions[n - 1]);
             } });
         
         start = end;
@@ -138,53 +137,34 @@ std::shared_ptr<tokenized_submission_t> plagiarism_checker_t::get_tokenized_subm
     // Tokenize the submission
     tokenizer_t tkzr(submission->codefile);
     auto tokens = tkzr.get_tokens();
-    const int num_tokens = tokens.size();
 
-    // Hash the tokens for patchwork and exact matches
-    std::unordered_set<long long> exact_hashes;
-    std::unordered_set<long long> patchwork_hashes;
+    // Part 1: Get the hashes for each index
 
-    long long hash_exact = 0;
-    long long base_exp_exact = 1;
+    const int minLength = 15;
+    std::vector<long long> hashes(n - minLength + 1);
 
-    long long hash_patchwork = 0;
-    long long base_exp_patchwork = 1;
+    long long hash = 0;
+    long long baseExp = 1; // to remove the first element
 
-    for (int i = 0; i < num_tokens; i++)
+    // Compute the hash of the first window
+    for (int i = 0; i < minLength; i++)
     {
-        if (i >= window_size_exact)
-        {
-            exact_hashes.insert(hash_exact);
-        }
-        if (i >= window_size_patchwork)
-        {
-            patchwork_hashes.insert(hash_patchwork);
-        }
-
-        hash_exact = ((hash_exact * base) + tokens[i]) % mod;
-        hash_patchwork = ((hash_patchwork * base) + tokens[i]) % mod;
-
-        if (i < window_size_exact)
-        {
-            base_exp_exact = (base_exp_exact * base) % mod;
-        }
-        else
-        {
-            hash_exact = (hash_exact - ((tokens[i - window_size_exact] * base_exp_exact) % mod) + mod) % mod;
-        }
-        if (i < window_size_patchwork)
-        {
-            base_exp_patchwork = (base_exp_patchwork * base) % mod;
-        }
-        else
-        {
-            hash_patchwork = (hash_patchwork - ((tokens[i - window_size_patchwork] * base_exp_patchwork) % mod) + mod) % mod;
-        }
+        hash = ((hash * base) + vec[i]) % mod;
+        baseExp = (baseExp * base) % mod;
     }
-    exact_hashes.insert(hash_exact);
-    patchwork_hashes.insert(hash_patchwork);
 
-    return std::make_shared<tokenized_submission_t>(submission, tokens, timestamp, exact_hashes, patchwork_hashes, is_new_submission);
+    // Compute rolling hashes for all windows
+    for (int i = minLength; i < n; ++i)
+    {
+        hashes[i - minLength] = hash;
+        hash = ((hash * base) + vec[i]) % mod;
+        hash = (hash - ((vec[i - minLength] * baseExp) % mod) + mod) % mod;
+    }
+
+    // Add the last hash
+    hashes[n - minLength] = hash;
+
+    // Part 2: Get the set of all hashes
 }
 
 void plagiarism_checker_t::tokenize_hash_chunk(const std::vector<std::shared_ptr<submission_t>> &submissions, const int &start, const int &end, const auto &timestamp)
@@ -197,30 +177,177 @@ void plagiarism_checker_t::tokenize_hash_chunk(const std::vector<std::shared_ptr
     }
 }
 
-void plagiarism_checker_t::check_exact_match(const int &i, const int &j)
+std::vector<long long> getIndexedHashes(const std::vector<int> &vec, const int &window)
 {
-    std::cerr << "[" << std::this_thread::get_id() << "] Checking exact match between " << i << " and " << j << std::endl;
+    const int n = vec.size();
+    std::vector<long long> hashes(n - window + 1);
 
-    for (const auto &hash : tokenized_submissions[i]->exact_hashes)
+    long long hash = 0;
+    long long baseExp = 1; // to remove the first element
+
+    // Compute the hash of the first window
+    for (int i = 0; i < window; i++)
     {
-        if (tokenized_submissions[j]->exact_hashes.find(hash) != tokenized_submissions[j]->exact_hashes.end())
+        hash = ((hash * base) + vec[i]) % mod;
+        baseExp = (baseExp * base) % mod;
+    }
+
+    // Compute rolling hashes for all windows
+    for (int i = window; i < n; ++i)
+    {
+        hashes[i - window] = hash;
+        hash = ((hash * base) + vec[i]) % mod;
+        hash = (hash - ((vec[i - window] * baseExp) % mod) + mod) % mod;
+    }
+
+    // Add the last hash
+    hashes[n - window] = hash;
+
+    return hashes;
+}
+
+// Getting the set of all hashes for all windows of size 'window'
+std::unordered_set<long long> getAllHashes(const std::vector<int> &vec, const int &window)
+{
+    const int n = vec.size();
+    std::unordered_set<long long> hashes;
+
+    long long hash = 0;
+    long long baseExp = 1; // for removing the first element
+
+    // Compute the hash of the first window
+    for (int i = 0; i < window; i++)
+    {
+        hash = ((hash * base) + vec[i]) % mod;
+        baseExp = (baseExp * base) % mod;
+    }
+
+    // Compute rolling hashes for all windows
+    for (int i = window; i < n; ++i)
+    {
+        hashes.insert(hash);
+        hash = ((hash * base) + vec[i]) % mod;
+        hash = (hash - ((vec[i - window] * baseExp) % mod) + mod) % mod;
+    }
+
+    // Add the last hash
+    hashes.insert(hash);
+
+    return hashes;
+}
+void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized_submission_t> sub1, std::shared_ptr<tokenized_submission_t> sub2)
+{
+    const auto &submission1 = sub1->tokens;
+    const auto &submission2 = sub2->tokens;
+
+    if (sub1->has_been_flagged && sub2->has_been_flagged)
+        return;
+    if (!sub1->is_new_submission && !sub2->is_new_submission)
+        return;
+    const int m = submission1.size();
+
+    // make hashAt1, a vector of hashes of size m - 9
+    // hashAt1[i] = computeHash(submission1[i ... i + 9])
+    auto hashAt1 = getIndexedHashes(submission1, minLength);
+    sub1->exact_hashes
+
+    // make hashes2, a set of all the hashes of size 10 in submission2
+    auto hashes2 = getAllHashes(submission2, minLength);
+
+    // make counted1, a vector of booleans of size m, all set to false initially
+    // counted1[i] is set to true if submmission1[i] is part of a match
+    std::vector<bool> counted1(m, false);
+
+    // for each hash in hashAt1, check if it is in hashes2
+    // if it is, set all the corresponding values in counted1 to true
+    for (int i = 0; i < m - minLength + 1; i++)
+    {
+        if (counted1[i])
+            continue;
+        if (hashes2.find(hashAt1[i]) != hashes2.end())
         {
-            // Check the time difference between the two submissions (in minutes)
-            // If the time difference is less than 1 second, both submissions are considered to be plagiarised
-            // Otherwise, only the later submission is flagged
-            bool is_i_earlier = tokenized_submissions[i]->timestamp < tokenized_submissions[j]->timestamp;
-            const auto &earlier_submission = is_i_earlier ? tokenized_submissions[i] : tokenized_submissions[j];
-            const auto &later_submission = is_i_earlier ? tokenized_submissions[j] : tokenized_submissions[i];
-
-            later_submission->flag_plagiarism();
-
-            auto millisecond_diff = std::chrono::duration_cast<std::chrono::milliseconds>(later_submission->timestamp - earlier_submission->timestamp).count();
-            if (millisecond_diff < 1000)
+            for (int i1 = i; i1 < i + minLength; i1++)
             {
-                earlier_submission->flag_plagiarism();
+                counted1[i1] = true;
             }
         }
     }
+
+    int i = 0;
+    int countSmall = 0;
+    int countLong = 0;
+
+    while (i < counted1.size())
+    {
+        if (!counted1[i])
+        {
+            i++;
+            continue;
+        }
+        else
+        {
+            int count = 1;
+            for (; i < counted1.size(); i++)
+            {
+                if (counted1[i])
+                    count++;
+                if (count == 75)
+                {
+                    if (sub1->is_new_submission)
+                    {
+                        sub1->flag_plagiarism();
+                    }
+                    if (sub2->is_new_submission)
+                    {
+                        sub2->flag_plagiarism();
+                    }
+                    return;
+                }
+            }
+
+            // NOTE: change 25 to make better predictions
+            if (count >= 25)
+                countLong++;
+            if (count < 25 && count >= minLength)
+                countSmall++;
+        }
+    }
+    auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(sub1->timestamp - sub2->timestamp).count();
+    if (countSmall >= 10 || countLong >= 7)
+    {
+        if (timeDiff > 1000)
+        {
+            sub1->flag_plagiarism();
+        }
+        else if (timeDiff < -1000)
+        {
+            sub2->flag_plagiarism();
+        }
+        else
+        {
+            sub1->flag_plagiarism();
+            sub2->flag_plagiarism();
+        }
+    }
+
+    // Checking for patchwork plagiarism
+    for (const auto &sub : {sub1, sub2})
+    {
+        if (sub->is_new_submission)
+        {
+            sub->patch_small = sub->patch_small + countSmall;
+            sub->patch_long = sub->patch_long + countLong;
+            int length = 150;
+            int checking = minLength * sub->patch_small + 25 * sub->patch_long;
+            // 3 checks: number of small matches, number of long matches, total length of matches
+            if (sub->patch_small >= 20 || sub->patch_long >= 15 || checking > length)
+            {
+                sub->flag_plagiarism();
+            }
+        }
+    }
+    
+    return;
 }
 
 // End TODO
