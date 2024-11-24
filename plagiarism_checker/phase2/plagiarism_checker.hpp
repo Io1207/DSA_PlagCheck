@@ -13,13 +13,15 @@
 
 // OPTIONAL: Add your helper functions and classes here
 
+const int base = 257;
+const int mod = 1e9 + 7;
+
 struct tokenized_submission_t : public submission_t
 {
     std::vector<int> tokens;
     std::chrono::time_point<std::chrono::system_clock> timestamp;
-    std::unordered_set<long long> exact_hashes;
-    std::unordered_set<long long> patchwork_hashes;
-    int patchwork_matches;
+    std::vector<long long> hashVec;
+    std::unordered_set<long long> hashSet;
     bool has_been_flagged; // To ensure we don't flag the same submission multiple times
     bool is_new_submission; // We are not flagging pre-existing submissions that are given in the constructor
     std::mutex flag_mutex; // To ensure thread safety
@@ -27,7 +29,7 @@ struct tokenized_submission_t : public submission_t
     tokenized_submission_t(
         std::shared_ptr<submission_t> submission, const std::vector<int> &tokens, 
         const std::chrono::time_point<std::chrono::system_clock> &timestamp, 
-        const std::unordered_set<long long> &exact_hashes, const std::unordered_set<long long> &patchwork_hashes,
+        const std::vector<long long> &hashVec, const std::unordered_set<long long> &hashSet,
         const bool &is_new_submission
     );
     void flag_plagiarism();
@@ -56,10 +58,6 @@ protected:
 
     // Number of threads for parallel processing
     int num_threads;
-
-    // Hash function parameters
-    const int base;
-    const int mod;
 
     // Number of submissions
     int n;
