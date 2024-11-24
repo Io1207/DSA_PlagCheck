@@ -22,11 +22,13 @@ struct tokenized_submission_t : public submission_t
     std::unordered_set<long long> patchwork_hashes;
     int patchwork_matches;
     bool has_been_flagged; // To ensure we don't flag the same submission multiple times
+    bool is_new_submission; // We are not flagging pre-existing submissions that are given in the constructor
 
     tokenized_submission_t(
         std::shared_ptr<submission_t> submission, const std::vector<int> &tokens, 
         const std::chrono::time_point<std::chrono::system_clock> &timestamp, 
-        const std::unordered_set<long long> &exact_hashes, const std::unordered_set<long long> &patchwork_hashes
+        const std::unordered_set<long long> &exact_hashes, const std::unordered_set<long long> &patchwork_hashes,
+        const bool &is_new_submission = false
     );
     void flag_plagiarism();
 };
@@ -70,7 +72,6 @@ protected:
     std::vector<std::shared_ptr<tokenized_submission_t>> tokenized_submissions;
 
     // To ensure thread safety
-    std::vector<std::mutex> submission_mutexes;
     std::mutex sub_mutex;
     // std::mutex patchwork_mutex; 
 
