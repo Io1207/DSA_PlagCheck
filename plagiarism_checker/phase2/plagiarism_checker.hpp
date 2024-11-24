@@ -3,7 +3,6 @@
 #include <vector>
 #include <thread>
 #include <mutex>
-#include <cmath>
 #include <chrono>
 #include <unordered_set>
 #include <algorithm>
@@ -23,12 +22,13 @@ struct tokenized_submission_t : public submission_t
     int patchwork_matches;
     bool has_been_flagged; // To ensure we don't flag the same submission multiple times
     bool is_new_submission; // We are not flagging pre-existing submissions that are given in the constructor
+    std::mutex flag_mutex; // To ensure thread safety
 
     tokenized_submission_t(
         std::shared_ptr<submission_t> submission, const std::vector<int> &tokens, 
         const std::chrono::time_point<std::chrono::system_clock> &timestamp, 
         const std::unordered_set<long long> &exact_hashes, const std::unordered_set<long long> &patchwork_hashes,
-        const bool &is_new_submission = false
+        const bool &is_new_submission
     );
     void flag_plagiarism();
 };
@@ -47,13 +47,13 @@ protected:
     // TODO: Add members and function signatures here
 
     std::shared_ptr<tokenized_submission_t> get_tokenized_submission(
-        const std::shared_ptr<submission_t> &submission, const std::chrono::time_point<std::chrono::system_clock> &timestamp
+        const std::shared_ptr<submission_t> &submission, const std::chrono::time_point<std::chrono::system_clock> &timestamp,
+        const bool &is_new_submission
     );
     void tokenize_hash_chunk(const std::vector<std::shared_ptr<submission_t>> &submissions, const int &start, const int &end, const auto &timestamp);
-    void chunky_compare_pairs(const int &start_idx, const int &end_idx);
 
     void check_exact_match(const int &i, const int &j);
-    void update_patchwork(const int &i, const int &j);
+    // NOTE: Patchwork plagiarism check is missing
 
     // Number of threads for parallel processing
     int num_threads;
@@ -73,7 +73,6 @@ protected:
 
     // To ensure thread safety
     std::mutex sub_mutex;
-    // std::mutex patchwork_mutex; 
 
     // End TODO
 };
