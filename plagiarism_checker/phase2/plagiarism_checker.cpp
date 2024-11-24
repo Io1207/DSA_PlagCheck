@@ -35,7 +35,7 @@ void tokenized_submission_t::flag_plagiarism()
 }
 
 plagiarism_checker_t::plagiarism_checker_t(void)
-    : num_threads(std::thread::hardware_concurrency()), base(257), mod(1e9 + 7), n(0), 
+    : num_threads(std::thread::hardware_concurrency()), base(257), mod(1e9 + 7), n(0),
       window_size_exact(75), window_size_patchwork(10), tokenized_submissions(), submission_mutexes(), sub_mutex()
 {
 }
@@ -47,6 +47,9 @@ plagiarism_checker_t::plagiarism_checker_t(std::vector<std::shared_ptr<submissio
     auto sub_time = std::chrono::system_clock::now();
 
     n = __submissions.size();
+
+    std::cerr << "Constructor called, num_threads = " << num_threads << ", n = " << n << std::endl;
+
     sub_mutex.lock();
     submission_mutexes = std::vector<std::mutex>(n);
     sub_mutex.unlock();
@@ -107,16 +110,15 @@ plagiarism_checker_t::~plagiarism_checker_t(void)
 
 void plagiarism_checker_t::add_submission(std::shared_ptr<submission_t> __submission)
 {
+    std::cerr << "[" << std::this_thread::get_id() << "] Adding submission" << std::endl;
+
     // Record the submission time
     auto timestamp = std::chrono::system_clock::now();
 
-    {
-        std::lock_guard<std::mutex> lock(sub_mutex);
-        tokenized_submissions.push_back(get_tokenized_submission(__submission, timestamp));
-        n++;
-    }
+    tokenized_submissions.push_back(get_tokenized_submission(__submission, timestamp));
+    n++;
 
-    int chunk_size = std::ceil((n + 0.0) / num_threads);
+    int chunk_size = std::ceil((n - 1.0) / num_threads);
     std::vector<std::thread> plag_threads;
 
     for (int t = 0; t < std::min(num_threads, n - 1); t++)
@@ -125,6 +127,7 @@ void plagiarism_checker_t::add_submission(std::shared_ptr<submission_t> __submis
         int end = std::min(start + chunk_size, n - 1);
         plag_threads.emplace_back([this, start, end]()
                                   {
+            std::cerr << "[" << std::this_thread::get_id() << "] Comparing chunk (" << start << ", " << end << ") with new submission" << std::endl;
             for(int idx = start; idx < end; idx++) {
                 check_exact_match(idx, n - 1);
                 update_patchwork(idx, n - 1);
@@ -135,12 +138,15 @@ void plagiarism_checker_t::add_submission(std::shared_ptr<submission_t> __submis
     {
         t.join();
     }
+
+    std::cerr << "[" << std::this_thread::get_id() << "] Finished adding submission" << std::endl;
 }
 
 std::shared_ptr<tokenized_submission_t> plagiarism_checker_t::get_tokenized_submission(
-    const std::shared_ptr<submission_t> &submission, const std::chrono::time_point<std::chrono::system_clock> &timestamp
-)
+    const std::shared_ptr<submission_t> &submission, const std::chrono::time_point<std::chrono::system_clock> &timestamp)
 {
+    std::cerr << "[" << std::this_thread::get_id() << "] Preprocessing submission" << std::endl;
+
     // Assuming required mutexes are locked before calling this function
 
     // Tokenize the submission
@@ -197,6 +203,7 @@ std::shared_ptr<tokenized_submission_t> plagiarism_checker_t::get_tokenized_subm
 
 void plagiarism_checker_t::tokenize_hash_chunk(const std::vector<std::shared_ptr<submission_t>> &submissions, const int &start, const int &end, const auto &timestamp)
 {
+    std::cerr << "[" << std::this_thread::get_id() << "] Tokenizing chunk (" << start << ", " << end << ")" << std::endl;
     for (int idx = start; idx < end; idx++)
     {
         std::lock_guard<std::mutex> lock(sub_mutex);
@@ -206,11 +213,12 @@ void plagiarism_checker_t::tokenize_hash_chunk(const std::vector<std::shared_ptr
 
 void plagiarism_checker_t::check_exact_match(const int &i, const int &j)
 {
+    std::cerr << "[" << std::this_thread::get_id() << "] Checking exact match between (" << i << ", " << j << ")" << std::endl;
+    
     for (const auto &hash : tokenized_submissions[i]->exact_hashes)
     {
         if (tokenized_submissions[j]->exact_hashes.find(hash) != tokenized_submissions[j]->exact_hashes.end())
         {
-
             // Check the time difference between the two submissions (in minutes)
             // If the time difference is less than 1 second, both submissions are considered to be plagiarised
             // Otherwise, only the later submission is flagged
@@ -231,6 +239,8 @@ void plagiarism_checker_t::check_exact_match(const int &i, const int &j)
 
 void plagiarism_checker_t::update_patchwork(const int &i, const int &j)
 {
+    std::cerr << "[" << std::this_thread::get_id() << "] Updating patchwork between (" << i << ", " << j << ")" << std::endl;
+
     for (const auto &hash : tokenized_submissions[i]->patchwork_hashes)
     {
         if (tokenized_submissions[j]->patchwork_hashes.find(hash) != tokenized_submissions[j]->patchwork_hashes.end())
@@ -250,6 +260,8 @@ void plagiarism_checker_t::update_patchwork(const int &i, const int &j)
 
 void plagiarism_checker_t::chunky_compare_pairs(const int &start_idx, const int &end_idx)
 {
+    std::cerr << "[" << std::this_thread::get_id() << "] Comparing chunk (" << start_idx << ", " << end_idx << ")" << std::endl;
+
     // Calculate the pairwise indices and call plagiarism check
     for (int idx = start_idx; idx < end_idx; idx++)
     {
@@ -259,11 +271,13 @@ void plagiarism_checker_t::chunky_compare_pairs(const int &start_idx, const int 
         int i = (int)(n - 0.5 - std::sqrt(std::pow(n - 0.5, 2) - 2 * idx));
         int j = (int)(i + 1 + (idx - 0.5 * i * (2 * n - i - 1)));
 
+        std::cerr << "[" << std::this_thread::get_id() << "] Comparing (" << i << ", " << j << ")" << std::endl;
+
         // First, we check for exact matches of length 75 or more
         check_exact_match(i, j);
 
         // Next, we check for patchwork plagiarism
-        update_patchwork(i, j);
+        // update_patchwork(i, j);
     }
 }
 
