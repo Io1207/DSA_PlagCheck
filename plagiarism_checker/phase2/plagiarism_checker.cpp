@@ -21,7 +21,7 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
     const std::unordered_set<long long> &hashes2 = sub2->hashSet;
     const int m = submission1.size();
 
-    if (submission1==submission2)
+    if (submission1 == submission2)
     {
         auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(sub1->timestamp - sub2->timestamp).count();
         if (timeDiff > 1000)
@@ -65,11 +65,15 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
     int countSmall = 0;
     int countLong = 0;
     int count = 0;
-    for(int i = 0; i < m; i++) {
-        if(counted1[i]) {
+    for (int i = 0; i < m; i++)
+    {
+        if (counted1[i])
+        {
             count++;
-        } else {
-            if(count >= 75) 
+        }
+        else
+        {
+            if (count >= 75)
             {
                 auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(sub1->timestamp - sub2->timestamp).count();
                 std::cerr << "timeDiff = " << timeDiff << std::endl;
@@ -88,11 +92,15 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
                     // std::cerr << "count==75 and timeDiff in range" << std::endl;
                     sub1->flag_plagiarism();
                     sub2->flag_plagiarism();
-                }   
+                }
                 return;
-            } else if(count >= 25) {
+            }
+            else if (count >= 25)
+            {
                 countLong++;
-            } else if(count >= minLength) {
+            }
+            else if (count >= minLength)
+            {
                 countSmall++;
             }
             count = 0;
@@ -101,7 +109,7 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
 
     auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(sub1->timestamp - sub2->timestamp).count();
     // if (countSmall >= 10 || countLong >= 7)
-    if(countSmall + countLong >= 10 || countLong >= 6 || 10*countSmall + 25*countLong >= 150)
+    if (countSmall + countLong >= 10 || countLong >= 6 || 10 * countSmall + 25 * countLong >= 150)
     {
         if (timeDiff > 1000)
         {
@@ -133,7 +141,7 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
             int checking = minLength * sub->patch_small + 25 * sub->patch_long;
             // 3 checks: number of small matches, number of long matches, total length of matches
             // if (sub->patch_small >= 20 || sub->patch_long >= 15 || checking > length)
-            if(sub->patch_small + sub->patch_long >= 20 || checking >= length || sub->patch_long >= 12)
+            if (sub->patch_small + sub->patch_long >= 20 || checking >= length || sub->patch_long >= 12)
             {
                 // std::cerr << "patch_small >= 20" << std::endl;
                 sub->flag_plagiarism();
@@ -143,6 +151,8 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
 
     return;
 }
+
+////////////////////////// IMPLEMENTATION //////////////////////////
 
 tokenized_submission_t::tokenized_submission_t(
     std::shared_ptr<submission_t> submission, const std::vector<int> &tokens,
@@ -182,8 +192,7 @@ void tokenized_submission_t::flag_plagiarism()
 
 // We are allowed the use of upto 3 threads only
 plagiarism_checker_t::plagiarism_checker_t(void)
-    : num_threads(3), n(0),
-      window_size_exact(75), window_size_patchwork(10), tokenized_submissions(), sub_mutex()
+    : threads(), n(0), tokenized_submissions(), sub_mutex()
 {
 }
 
@@ -221,19 +230,13 @@ plagiarism_checker_t::plagiarism_checker_t(std::vector<std::shared_ptr<submissio
 
 plagiarism_checker_t::~plagiarism_checker_t(void)
 {
+    for (auto &t : threads)
+    {
+        t.join();
+    }
 }
 
-void plagiarism_checker_t::add_submission(std::shared_ptr<submission_t> __submission)
-{
-    // Record the submission time
-    auto timestamp = std::chrono::steady_clock::now();
-    
-    // std::cerr << "Adding new submission" << std::endl;
-
-    // Preprocessing of the new submissions can occur in parallel
-    // NOTE: Potentially in the future, if required
-
-    // Preprocess the new submission
+void plagiarism_checker_t::process_submission(std::shared_ptr<submission_t> __submission, std::chrono::time_point<std::chrono::steady_clock> timestamp) {
     auto ptr = get_tokenized_submission(__submission, timestamp, true);
 
     // Add the new submission to the list of tokenized submissions
@@ -244,17 +247,16 @@ void plagiarism_checker_t::add_submission(std::shared_ptr<submission_t> __submis
     }
 
     // Check for plagiarism with all the existing submissions
-    int chunk_size = (n - 1) / num_threads;
-    int remainder = (n - 1) % num_threads;
+    int chunk_size = (n - 1) / (num_threads - 1);
+    int remainder = (n - 1) % (num_threads - 1);
 
-    std::vector<std::thread> plag_threads;
     int start = 0;
 
-    for (int t = 0; t < std::min(num_threads, n - 1); t++)
+    for (int t = 0; t < std::min(num_threads - 1, n - 1); t++)
     {
         int end = start + chunk_size + (t < remainder);
 
-        plag_threads.emplace_back([this, start, end]()
+        threads.emplace_back([this, start, end]()
                                   {
             // std::cerr << "[" << std::this_thread::get_id() << "] Checking " << n - 1 << " against chunk (" << start << ", " << end << ")" << std::endl;
             for(int idx = start; idx < end; idx++) {
@@ -263,11 +265,13 @@ void plagiarism_checker_t::add_submission(std::shared_ptr<submission_t> __submis
 
         start = end;
     }
+}
 
-    for (auto &t : plag_threads)
-    {
-        t.join();
-    }
+void plagiarism_checker_t::add_submission(std::shared_ptr<submission_t> __submission)
+{
+    // Record the submission time
+    auto timestamp = std::chrono::steady_clock::now();
+    threads.push_back(std::thread(&plagiarism_checker_t::process_submission, this, __submission, timestamp));
 }
 
 std::shared_ptr<tokenized_submission_t> plagiarism_checker_t::get_tokenized_submission(

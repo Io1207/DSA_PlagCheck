@@ -16,6 +16,8 @@
 const int base = 257;
 const int mod = 1e9 + 7;
 
+const int num_threads = 3;
+
 struct tokenized_submission_t : public submission_t
 {
     std::vector<int> tokens;
@@ -50,6 +52,7 @@ public:
 protected:
     // TODO: Add members and function signatures here
 
+    void process_submission(std::shared_ptr<submission_t> submission, std::chrono::time_point<std::chrono::steady_clock> timestamp);
     std::shared_ptr<tokenized_submission_t> get_tokenized_submission(
         const std::shared_ptr<submission_t> &submission, const std::chrono::time_point<std::chrono::steady_clock> &timestamp,
         const bool &is_new_submission
@@ -58,15 +61,11 @@ protected:
 
     // void check_exact_match(const int &i, const int &j);
 
-    // Number of threads for parallel processing
-    int num_threads;
+    // Parallel processing
+    std::vector<std::thread> threads;
 
     // Number of submissions
     int n;
-
-    // Detection threshold parameters
-    const int window_size_exact;
-    const int window_size_patchwork;
 
     std::vector<std::shared_ptr<tokenized_submission_t>> tokenized_submissions;
 
