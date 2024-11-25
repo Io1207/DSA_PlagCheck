@@ -80,7 +80,7 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
         } 
         else 
         {
-            if (count<75) continue; //in case threshold hasn't been crossed go to the next iteration
+            //if (count<75) continue; //in case threshold hasn't been crossed go to the next iteration
             
             // If a match is found, check conditions for plagiarism flagging
             if(count >= std::min(m,75)) 
