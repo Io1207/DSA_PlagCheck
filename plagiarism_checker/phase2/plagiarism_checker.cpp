@@ -7,6 +7,7 @@
 // Function to check for pattern matches and flag plagiarism based on tokenized submissions
 void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized_submission_t> sub1, std::shared_ptr<tokenized_submission_t> sub2)
 {
+    // std::cerr<<"entered"<<std::endl;
     {
         std::lock_guard<std::mutex> lock1(sub1->flag_mutex);
         std::lock_guard<std::mutex> lock2(sub2->flag_mutex);
@@ -30,6 +31,7 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
     if (submission1==submission2)
     {
         auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(sub1->timestamp - sub2->timestamp).count();
+        // std::cerr<<"In loop A"<c<std::endl;
         if (timeDiff > 1000)
         {
             // std::cerr << "submission1==submission2 and timeDiff > 1000" << std::endl;
@@ -55,6 +57,7 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
     // Compare tokens and check if hashes match
     for (int i = 0; i < m - minLength + 1; i++)
     {
+        // std::cerr<<"In loop B"<<std::endl;
         if (counted1[i])
             continue;
         if (hashes2.find(hashAt1[i]) != hashes2.end())
@@ -66,6 +69,11 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
         }
     }
 
+    // for(int i=0; i<std::min(submission1.size(),submission2.size()); i++)
+    // {
+    //     std::cerr<<"sub1: "<<submission1[i]<<"  sub2   "<<submission2[i]<<"  counted1  "<<counted1[i]<<std::endl;
+    // }
+
     // Track counts for short and long matches
     int countSmall = 0;
     int countLong = 0;
@@ -74,6 +82,7 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
     // Iterate through tokens to check for pattern matches
     for(int i = 0; i < m; i++) 
     {
+        // std::cerr<<"In loop C"<<std::endl;
         if(counted1[i]) 
         {
             count++;
@@ -85,6 +94,7 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
             // If a match is found, check conditions for plagiarism flagging
             if(count >= std::min(m,75)) 
             {
+                // std::cerr<<"In loop D"<<std::endl;
                 auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(sub1->timestamp - sub2->timestamp).count();
                 std::cerr << "timeDiff = " << timeDiff << std::endl;
                 if (timeDiff > 1000)
@@ -102,6 +112,7 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
                     // std::cerr << "count==75 and timeDiff in range" << std::endl;
                     sub1->flag_plagiarism();
                     sub2->flag_plagiarism();
+                    // std::cerr<<"return"<<std::endl;
                     return;
                 }   
             } 
@@ -136,29 +147,38 @@ void totalLengthOfPatternMatches(const int &minLength, std::shared_ptr<tokenized
             // std::cerr << "countSmall >= 10, timeDiff in range" << std::endl;
             sub1->flag_plagiarism();
             sub2->flag_plagiarism();
+            // std::cerr<<"return"<<std::endl;
+            return;
         }
     }
 
     // Checking for patchwork plagiarism
     for (const auto &sub : {sub1, sub2})
     {
+        // std::cerr<<"In loop E"<<std::endl;
         if (sub->is_new_submission)
         {
             std::lock_guard<std::mutex> lock(sub->flag_mutex);
+            // std::cerr<<"post lock 1"<<std::endl;
             sub->patch_small = sub->patch_small + countSmall;
             sub->patch_long = sub->patch_long + countLong;
             int length = 275;
             int checking = minLength * sub->patch_small + 25 * sub->patch_long;
             // 3 checks: number of small matches, number of long matches, total length of matches
             // if (sub->patch_small >= 20 || sub->patch_long >= 15 || checking > length)
+            // std::cerr<<"my name is idcg"<<std::endl;
             if(sub->patch_small + sub->patch_long >= 20 || checking >= length || sub->patch_long >= 11)
             {
                 // std::cerr << "patch_small >= 20" << std::endl;
+                // std::cerr<<"entering flagging"<<std::endl;
                 sub->flag_plagiarism();
+                // std::cerr<<"exit from flagging"<<std::endl;
             }
         }
     }
 
+    
+    // std::cerr<<"return"<<std::endl;
     return;
 }
 
@@ -178,7 +198,8 @@ tokenized_submission_t::tokenized_submission_t(
 void tokenized_submission_t::flag_plagiarism()
 {
     // Lock the mutex to ensure thread safety for checking and modifying has_been_flagged
-    std::lock_guard<std::mutex> lock(flag_mutex);
+    // std::lock_guard<std::mutex> lock(flag_mutex);
+    // std::cerr<<" Flagging post lock"<<std::endl;
 
     // Don't flag the same submission multiple times or pre-existing submissions
     if (has_been_flagged || !is_new_submission)
@@ -305,7 +326,7 @@ void plagiarism_checker_t::process_submissions()
         // Perform plagiarism check using a single thread
         for (int idx = 0; idx < n - 1; idx++)
         {
-            totalLengthOfPatternMatches(13, tokenized_submissions[idx], tokenized_submission);
+            totalLengthOfPatternMatches(12, tokenized_submissions[idx], tokenized_submission);
         }
     }
 }
@@ -326,7 +347,7 @@ std::shared_ptr<tokenized_submission_t> plagiarism_checker_t::get_tokenized_subm
 
     // Get the hashes for each index as well as the set of all hashes
 
-    const int minLength = 13;
+    const int minLength = 12;
     std::vector<long long> hashVec(length - minLength + 1);
     std::unordered_set<long long> hashSet;
 
