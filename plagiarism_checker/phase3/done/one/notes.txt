@@ -1,0 +1,12 @@
+Problem: 
+https://leetcode.com/problems/edit-distance/
+
+Method:
+Replace vector, string with std::vector, std::string
+If a statement has a multitude of operations like [], +, ==, < and so on, break it into simple operations
+Make a whole bunch of temporary variables in the process
+
+Remarks:
+Breaks all checkers
+Didn't have to use singer-breaker
+Didn't check against MOSS, maybe singer-breaker will be needed there
